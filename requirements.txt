@@ -1,0 +1,32 @@
+# FastAPI и сервер
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+python-multipart==0.0.6
+
+# База данных и ORM
+sqlalchemy==2.0.23
+supabase==2.0.0
+psycopg2-binary==2.9.9
+
+# Валидация и сериализация
+pydantic==2.5.0
+pydantic-settings==2.1.0
+
+# Аутентификация и безопасность
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-dotenv==1.0.0
+
+# HTTP клиент
+httpx==0.25.2
+
+# Работа с датами
+pytz==2023.3
+
+# Логирование (встроенный, но можно добавить структурированное)
+# structlog==23.2.0  # опционально
+
+# Email (для уведомлений)
+aiosmtplib==3.0.1
+email-validator==2.1.0
+
