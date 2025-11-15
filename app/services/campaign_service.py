@@ -97,8 +97,15 @@ class CampaignService:
             )
             
             # Отправляем уведомление владельцу канала
+            # Получаем данные пользователя для email
+            channel_user = supabase.table("users").select("email, full_name").eq("id", channel["user_id"]).execute()
+            channel_email = channel_user.data[0].get("email") if channel_user.data else None
+            channel_name = channel_user.data[0].get("full_name") if channel_user.data else None
+            
             await NotificationService.send_new_campaign_notification(
                 channel_owner_user_id=channel["user_id"],
+                channel_owner_email=channel_email,
+                channel_owner_name=channel_name,
                 campaign_id=campaign_id,
                 seller_shop_name=seller.get("shop_name", "Неизвестный продавец"),
                 budget=budget
@@ -233,9 +240,21 @@ class CampaignService:
             # Уведомляем продавца
             seller = supabase.table("sellers").select("user_id").eq("id", campaign["seller_id"]).execute()
             if seller.data:
+                seller_user_id = seller.data[0]["user_id"]
+                # Получаем данные продавца и канала для уведомления
+                seller_user = supabase.table("users").select("email, full_name").eq("id", seller_user_id).execute()
+                seller_email = seller_user.data[0].get("email") if seller_user.data else None
+                seller_name = seller_user.data[0].get("full_name") if seller_user.data else None
+                
+                channel = supabase.table("channels").select("channel_name").eq("id", campaign["channel_id"]).execute()
+                channel_name = channel.data[0].get("channel_name") if channel.data else None
+                
                 await NotificationService.send_campaign_accepted_notification(
-                    seller_user_id=seller.data[0]["user_id"],
-                    campaign_id=campaign_id
+                    seller_user_id=seller_user_id,
+                    seller_email=seller_email,
+                    seller_name=seller_name,
+                    campaign_id=campaign_id,
+                    channel_name=channel_name
                 )
             
             logger.info(f"Campaign {campaign_id} accepted by channel owner")
@@ -466,8 +485,15 @@ class CampaignService:
                     )
                     
                     # Уведомляем владельца канала
+                    channel_owner_user_id = channel.data[0]["user_id"]
+                    channel_owner_user = supabase.table("users").select("email, full_name").eq("id", channel_owner_user_id).execute()
+                    channel_owner_email = channel_owner_user.data[0].get("email") if channel_owner_user.data else None
+                    channel_owner_name = channel_owner_user.data[0].get("full_name") if channel_owner_user.data else None
+                    
                     await NotificationService.send_campaign_completed_notification(
-                        channel_owner_user_id=channel.data[0]["user_id"],
+                        channel_owner_user_id=channel_owner_user_id,
+                        channel_owner_email=channel_owner_email,
+                        channel_owner_name=channel_owner_name,
                         campaign_id=campaign_id,
                         payment_amount=payment_to_owner
                     )

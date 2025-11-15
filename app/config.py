@@ -60,10 +60,51 @@ class Settings(BaseSettings):
     # Webhooks
     webhook_secret: str = Field("your-super-secret-webhook-key", alias="WEBHOOK_SECRET")
     
+    # ==================== PHASE 2: Redis ====================
+    redis_host: str = Field("localhost", alias="REDIS_HOST")
+    redis_port: int = Field(6379, alias="REDIS_PORT")
+    redis_db: int = Field(0, alias="REDIS_DB")
+    redis_password: Optional[str] = Field(None, alias="REDIS_PASSWORD")
+    
+    # ==================== PHASE 2: WebSocket ====================
+    websocket_cors_origins: list = Field(
+        default=["*"],
+        alias="WEBSOCKET_CORS_ORIGINS"
+    )
+    
+    # ==================== PHASE 2: Email (SendGrid) ====================
+    sendgrid_api_key: Optional[str] = Field(None, alias="SENDGRID_API_KEY")
+    sendgrid_from_email: str = Field("noreply@advertising-marketplace.com", alias="SENDGRID_FROM_EMAIL")
+    sendgrid_from_name: str = Field("Advertising Marketplace", alias="SENDGRID_FROM_NAME")
+    
+    # Альтернатива: SMTP (уже есть выше, но добавим use_tls)
+    smtp_use_tls: bool = Field(True, alias="SMTP_USE_TLS")
+    
+    # ==================== PHASE 2: VK API ====================
+    vk_service_key: Optional[str] = Field(None, alias="VK_SERVICE_KEY")
+    
+    # ==================== PHASE 2: Telegram ====================
+    telegram_bot_token: Optional[str] = Field(None, alias="TELEGRAM_BOT_TOKEN")
+    
+    # ==================== PHASE 2: Background Tasks ====================
+    enable_background_tasks: bool = Field(True, alias="ENABLE_BACKGROUND_TASKS")
+    
+    # Frontend URL для email ссылок
+    frontend_url: str = Field("http://localhost:3000", alias="FRONTEND_URL")
+    
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
         case_sensitive = False
+        
+        @classmethod
+        def parse_env_var(cls, field_name: str, raw_val: str) -> any:
+            if field_name == "WEBSOCKET_CORS_ORIGINS":
+                return [origin.strip() for origin in raw_val.split(",")] if raw_val else ["*"]
+            try:
+                return cls.json_loads(raw_val)
+            except:
+                return raw_val
 
 
 # Глобальный экземпляр настроек

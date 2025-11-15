@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 20px auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .button {
+            display: inline-block;
+            padding: 12px 24px;
+            background-color: #28a745;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            margin: 20px 0;
+        }
+        .success {
+            background-color: #d4edda;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 20px 0;
+            border-left: 4px solid #28a745;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Заявка принята! ✅</h1>
+        </div>
+        
+        <p>Здравствуйте, {{ seller_name }}!</p>
+        
+        <div class="success">
+            <p><strong>Отличные новости!</strong> Канал <strong>{{ channel_name }}</strong> принял вашу заявку на размещение рекламы.</p>
+        </div>
+        
+        <p>Теперь владелец канала приступит к размещению вашей рекламы. Вы получите уведомление, когда размещение будет завершено.</p>
+        
+        <div style="text-align: center;">
+            <a href="{{ campaign_url }}" class="button">Просмотреть заявку</a>
+        </div>
+        
+        <p style="margin-top: 30px; color: #666; font-size: 14px;">
+            С уважением,<br>
+            Команда Advertising Marketplace
+        </p>
+    </div>
+</body>
+</html>
+

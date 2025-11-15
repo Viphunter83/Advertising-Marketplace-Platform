@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 20px auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .button {
+            display: inline-block;
+            padding: 12px 24px;
+            background-color: #0070f3;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            margin: 20px 0;
+        }
+        .payment {
+            background-color: #e7f3ff;
+            padding: 20px;
+            border-radius: 6px;
+            margin: 20px 0;
+            border-left: 4px solid #0070f3;
+            text-align: center;
+        }
+        .amount {
+            font-size: 32px;
+            font-weight: bold;
+            color: #0070f3;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Выплата получена! 💰</h1>
+        </div>
+        
+        <p>Здравствуйте, {{ channel_owner_name }}!</p>
+        
+        <div class="payment">
+            <p>Средства за размещение рекламы зачислены на ваш счёт:</p>
+            <div class="amount">{{ payment_amount }} RUB</div>
+        </div>
+        
+        <p>Вы можете вывести средства в любое время через личный кабинет.</p>
+        
+        <div style="text-align: center;">
+            <a href="{{ campaign_url }}" class="button">Просмотреть детали</a>
+        </div>
+        
+        <p style="margin-top: 30px; color: #666; font-size: 14px;">
+            С уважением,<br>
+            Команда Advertising Marketplace
+        </p>
+    </div>
+</body>
+</html>
+
