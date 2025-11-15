@@ -22,6 +22,13 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import toast from 'react-hot-toast';
@@ -63,14 +70,14 @@ export function RegisterForm() {
       
       login(user, { access_token, refresh_token, token_type: 'bearer' });
       
-      // Редирект в зависимости от типа пользователя
-      const dashboardUrl = 
+      // Редирект на создание профиля после регистрации
+      const profileUrl = 
         user.user_type === 'seller'
-          ? '/seller/dashboard'
-          : '/channel/dashboard';
+          ? '/seller/profile'
+          : '/channel/profile';
       
-      toast.success('Registration successful!');
-      router.push(dashboardUrl);
+      toast.success('Registration successful! Please complete your profile.');
+      router.push(profileUrl);
     } catch (err: any) {
       const errorMessage = err.response?.data?.detail || 'Registration failed. Please try again.';
       setError(errorMessage);
@@ -144,15 +151,17 @@ export function RegisterForm() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Account Type</FormLabel>
-                  <FormControl>
-                    <select
-                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                      {...field}
-                    >
-                      <option value="seller">Seller</option>
-                      <option value="channel_owner">Channel Owner</option>
-                    </select>
-                  </FormControl>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select account type" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="seller">Seller (Размещаю рекламу)</SelectItem>
+                      <SelectItem value="channel_owner">Channel Owner (Монетизирую канал)</SelectItem>
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}
