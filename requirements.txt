@@ -14,11 +14,13 @@ pydantic-settings==2.1.0
 
 # Аутентификация и безопасность
 python-jose[cryptography]==3.3.0
+PyJWT>=2.8.0
 passlib[bcrypt]==1.7.4
+bcrypt==4.1.1
 python-dotenv==1.0.0
 
 # HTTP клиент
-httpx==0.25.2
+httpx>=0.24.0,<0.25.0
 
 # Работа с датами
 pytz==2023.3

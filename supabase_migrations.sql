@@ -132,13 +132,18 @@ CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(read);
 
 -- Функция для автоматического обновления updated_at
+-- Установлен search_path для безопасности (защита от SQL injection через search_path)
 CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER 
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
 BEGIN
     NEW.updated_at = NOW();
     RETURN NEW;
 END;
-$$ language 'plpgsql';
+$$;
 
 -- Триггеры для автоматического обновления updated_at
 CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users

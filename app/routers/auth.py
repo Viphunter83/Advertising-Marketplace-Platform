@@ -1,156 +1,275 @@
 """
-Маршруты для аутентификации: регистрация, вход, обновление токена.
+app/routers/auth.py
+API endpoints для аутентификации.
 """
-from fastapi import APIRouter, HTTPException, status, Depends
-from app.schemas.user import UserCreate, UserLogin, UserResponse
-from app.core.security import get_password_hash, verify_password, create_access_token
-from app.core.database import get_supabase_client
-from app.models.user import User
 import logging
+from fastapi import APIRouter, HTTPException, status, Depends
+from app.schemas.user import (
+    UserRegister,
+    UserLogin,
+    TokenResponse,
+    RefreshTokenRequest,
+    UserResponse
+)
+from app.services.user_service import UserService
+from app.core.dependencies import get_current_user
+from app.core.database import get_supabase_client
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/auth", tags=["auth"])
+router = APIRouter(
+    prefix="/auth",
+    tags=["Authentication"]
+)
 
 
-@router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
-async def register(user_data: UserCreate):
+@router.post(
+    "/register",
+    response_model=TokenResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Регистрация нового пользователя",
+    responses={
+        201: {"description": "Пользователь успешно зарегистрирован"},
+        400: {"description": "Некорректные данные или пользователь уже существует"},
+        500: {"description": "Внутренняя ошибка сервера"}
+    }
+)
+async def register(user_data: UserRegister) -> TokenResponse:
     """
-    Регистрация нового пользователя.
+    Регистрирует нового пользователя (продавец или владелец канала).
     
-    Args:
-        user_data: Данные для регистрации (email, password, full_name, user_type)
-        
-    Returns:
-        Данные созданного пользователя
-        
-    Raises:
-        HTTPException: Если пользователь с таким email уже существует
+    **Параметры**:
+    - **email**: Email пользователя (уникальный)
+    - **password**: Пароль (минимум 8 символов)
+    - **full_name**: ФИО пользователя
+    - **phone**: Телефон (опционально)
+    - **user_type**: Тип пользователя ("seller" или "channel_owner")
+    
+    **Возвращает**:
+    - **access_token**: JWT токен для использования в Protected endpoints
+    - **refresh_token**: Токен для обновления access токена
+    - **token_type**: "bearer"
     """
-    supabase = get_supabase_client()
-    
-    # Проверяем, существует ли пользователь с таким email
     try:
-        existing_user = supabase.table("users").select("id").eq("email", user_data.email).execute()
-        if existing_user.data:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="User with this email already exists"
-            )
-    except HTTPException:
-        raise
+        # Регистрируем пользователя
+        user = await UserService.register_user(
+            email=user_data.email,
+            password=user_data.password,
+            full_name=user_data.full_name,
+            phone=user_data.phone,
+            user_type=user_data.user_type
+        )
+        
+        # Создаём токены
+        tokens = UserService.create_user_tokens(
+            user_id=user["id"],
+            email=user["email"],
+            user_type=user["user_type"]
+        )
+        
+        logger.info(f"User registered successfully: {user_data.email}")
+        return TokenResponse(**tokens)
+    
+    except ValueError as e:
+        logger.warning(f"Registration error: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
     except Exception as e:
-        logger.error(f"Error checking existing user: {e}")
+        logger.error(f"Unexpected error during registration: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error during registration"
-        )
-    
-    # Хешируем пароль
-    password_hash = get_password_hash(user_data.password)
-    
-    # Создаем модель пользователя
-    user = User(
-        email=user_data.email,
-        password_hash=password_hash,
-        phone=user_data.phone,
-        full_name=user_data.full_name,
-        user_type=user_data.user_type
-    )
-    
-    # Сохраняем в БД
-    try:
-        result = supabase.table("users").insert(user.to_dict()).execute()
-        created_user = result.data[0] if result.data else None
-        
-        if not created_user:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to create user"
-            )
-        
-        # Убираем password_hash из ответа
-        created_user.pop("password_hash", None)
-        
-        logger.info(f"User registered: {user_data.email}")
-        return UserResponse(**created_user)
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error creating user: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error during registration"
+            detail="Error registering user"
         )
 
 
-@router.post("/login", response_model=dict)
-async def login(credentials: UserLogin):
+@router.post(
+    "/login",
+    response_model=TokenResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Вход в систему",
+    responses={
+        200: {"description": "Успешный вход"},
+        401: {"description": "Неверные учётные данные"},
+        500: {"description": "Внутренняя ошибка сервера"}
+    }
+)
+async def login(credentials: UserLogin) -> TokenResponse:
     """
-    Вход пользователя. Возвращает JWT токен.
+    Вход пользователя в систему.
     
-    Args:
-        credentials: Email и пароль
-        
-    Returns:
-        Словарь с access_token и user данными
-        
-    Raises:
-        HTTPException: Если email или пароль неверны
+    **Параметры**:
+    - **email**: Email пользователя
+    - **password**: Пароль
+    
+    **Возвращает**:
+    - **access_token**: JWT токен для использования в защищённых endpoints
+    - **refresh_token**: Токен для обновления access токена
+    - **token_type**: "bearer"
+    
+    **Примеры использования токена**:
+    ```
+    curl -H "Authorization: Bearer {access_token}" http://localhost:8000/auth/me
+    ```
     """
-    supabase = get_supabase_client()
-    
     try:
-        # Ищем пользователя по email
-        result = supabase.table("users").select("*").eq("email", credentials.email).execute()
-        user_data = None
-        
-        if result.data and len(result.data) > 0:
-            user_data = result.data[0]
-        
-        if not user_data:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Incorrect email or password"
-            )
-        
-        # Проверяем пароль
-        if not verify_password(credentials.password, user_data.get("password_hash", "")):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Incorrect email or password"
-            )
-        
-        # Проверяем, активен ли пользователь
-        if not user_data.get("is_active", True):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="User account is inactive"
-            )
-        
-        # Создаем JWT токен
-        access_token = create_access_token(
-            data={"sub": user_data["id"], "email": user_data["email"]}
+        # Проверяем учётные данные
+        user = await UserService.authenticate_user(
+            email=credentials.email,
+            password=credentials.password
         )
         
-        # Убираем password_hash из ответа
-        user_data.pop("password_hash", None)
+        if not user:
+            logger.warning(f"Failed login attempt for: {credentials.email}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid email or password",
+                headers={"WWW-Authenticate": "Bearer"}
+            )
+        
+        # Создаём токены
+        tokens = UserService.create_user_tokens(
+            user_id=user["id"],
+            email=user["email"],
+            user_type=user["user_type"]
+        )
         
         logger.info(f"User logged in: {credentials.email}")
-        
-        return {
-            "access_token": access_token,
-            "token_type": "bearer",
-            "user": UserResponse(**user_data)
-        }
-        
+        return TokenResponse(**tokens)
+    
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error during login: {e}")
+        logger.error(f"Unexpected error during login: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error during login"
+            detail="Error logging in"
         )
 
+
+@router.post(
+    "/refresh",
+    response_model=TokenResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Обновление access токена",
+    responses={
+        200: {"description": "Access токен обновлен"},
+        400: {"description": "Невалидный refresh token"},
+        500: {"description": "Внутренняя ошибка сервера"}
+    }
+)
+async def refresh_token(request: RefreshTokenRequest) -> TokenResponse:
+    """
+    Обновляет access token используя refresh token.
+    
+    **Параметры**:
+    - **refresh_token**: Refresh token, полученный при логине
+    
+    **Возвращает**:
+    - Новую пару токенов (access_token и refresh_token)
+    """
+    try:
+        tokens = await UserService.refresh_access_token(request.refresh_token)
+        logger.debug(f"Token refreshed")
+        return TokenResponse(**tokens)
+    
+    except ValueError as e:
+        logger.warning(f"Token refresh error: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid refresh token"
+        )
+    except Exception as e:
+        logger.error(f"Unexpected error during token refresh: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error refreshing token"
+        )
+
+
+@router.get(
+    "/me",
+    response_model=UserResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Получить текущего пользователя",
+    responses={
+        200: {"description": "Данные пользователя"},
+        401: {"description": "Не авторизован"},
+        404: {"description": "Пользователь не найден"}
+    }
+)
+async def get_current_user_info(current_user: dict = Depends(get_current_user)) -> UserResponse:
+    """
+    Получает информацию о текущем авторизованном пользователе.
+    
+    **Требует**: Authorization заголовок с Bearer токеном
+    
+    **Пример**:
+    ```
+    curl -H "Authorization: Bearer {access_token}" http://localhost:8000/auth/me
+    ```
+    
+    **Возвращает**:
+    - **id**: UUID пользователя
+    - **email**: Email пользователя
+    - **full_name**: ФИО
+    - **phone**: Телефон
+    - **user_type**: Тип пользователя
+    - **kyc_status**: Статус верификации
+    - **is_active**: Активен ли аккаунт
+    - **created_at**: Дата регистрации
+    """
+    try:
+        user = await UserService.get_user_by_id(current_user["user_id"])
+        
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+        
+        # Преобразуем datetime в строку для ответа (если нужно)
+        if isinstance(user.get("created_at"), str):
+            user["created_at"] = user["created_at"]
+        elif hasattr(user.get("created_at"), "isoformat"):
+            user["created_at"] = user["created_at"].isoformat()
+        else:
+            user["created_at"] = str(user.get("created_at", ""))
+        
+        return UserResponse(**user)
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting user info: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error retrieving user information"
+        )
+
+
+@router.post(
+    "/logout",
+    status_code=status.HTTP_200_OK,
+    summary="Выход из системы",
+    responses={
+        200: {"description": "Успешный выход"}
+    }
+)
+async def logout(current_user: dict = Depends(get_current_user)) -> dict:
+    """
+    Выход пользователя из системы (клиент должен удалить токены).
+    
+    **Требует**: Authorization заголовок с Bearer токеном
+    
+    **Примечание**: В простом JWT-based решении logout происходит на клиенте
+    (удаление токенов из localStorage/cookies). На production нужна blacklist токенов.
+    
+    **Возвращает**:
+    ```json
+    {"message": "Successfully logged out"}
+    ```
+    """
+    logger.info(f"User logged out: {current_user['email']}")
+    return {"message": "Successfully logged out"}
