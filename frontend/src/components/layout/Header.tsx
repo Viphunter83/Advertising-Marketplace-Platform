@@ -8,6 +8,7 @@ import React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/lib/store/auth.store';
+import { RealTimeNotifications } from '@/components/common/RealTimeNotifications';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -66,7 +67,8 @@ export function Header() {
         </nav>
         
         {/* Auth */}
-        <div>
+        <div className="flex items-center gap-2">
+          {isAuthenticated && user && <RealTimeNotifications />}
           {isAuthenticated && user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

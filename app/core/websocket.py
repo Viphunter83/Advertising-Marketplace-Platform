@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 # Создаём Socket.io сервер
 sio = socketio.AsyncServer(
     async_mode='asgi',
-    cors_allowed_origins=settings.websocket_cors_origins,
+    cors_allowed_origins=settings.get_websocket_cors_origins(),
     logger=True,
     engineio_logger=True
 )

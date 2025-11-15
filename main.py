@@ -119,10 +119,21 @@ if __name__ == "__main__":
     
     logger.info(f"Starting {settings.app_name} on {settings.fastapi_host}:{settings.fastapi_port}")
     # Запускаем с socket_app вместо app для поддержки WebSocket
-    uvicorn.run(
-        socket_app,  # ИЗМЕНЕНО для поддержки WebSocket
-        host=settings.fastapi_host,
-        port=settings.fastapi_port,
-        reload=settings.fastapi_debug
-    )
+    # При использовании reload нужно передать строку импорта, а не объект
+    if settings.fastapi_debug:
+        # В режиме debug используем строку импорта для reload
+        uvicorn.run(
+            "main:socket_app",  # Строка импорта для reload
+            host=settings.fastapi_host,
+            port=settings.fastapi_port,
+            reload=True
+        )
+    else:
+        # В production используем объект напрямую
+        uvicorn.run(
+            socket_app,  # Объект для production
+            host=settings.fastapi_host,
+            port=settings.fastapi_port,
+            reload=False
+        )
 

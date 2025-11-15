@@ -67,10 +67,18 @@ class Settings(BaseSettings):
     redis_password: Optional[str] = Field(None, alias="REDIS_PASSWORD")
     
     # ==================== PHASE 2: WebSocket ====================
-    websocket_cors_origins: list = Field(
-        default=["*"],
+    websocket_cors_origins: str = Field(
+        default="*",
         alias="WEBSOCKET_CORS_ORIGINS"
     )
+    
+    def get_websocket_cors_origins(self) -> list[str]:
+        """Парсит WEBSOCKET_CORS_ORIGINS в список."""
+        if not self.websocket_cors_origins:
+            return ["*"]
+        if "," in self.websocket_cors_origins:
+            return [origin.strip() for origin in self.websocket_cors_origins.split(",") if origin.strip()]
+        return [self.websocket_cors_origins.strip()] if self.websocket_cors_origins.strip() else ["*"]
     
     # ==================== PHASE 2: Email (SendGrid) ====================
     sendgrid_api_key: Optional[str] = Field(None, alias="SENDGRID_API_KEY")
@@ -98,11 +106,12 @@ class Settings(BaseSettings):
         case_sensitive = False
         
         @classmethod
-        def parse_env_var(cls, field_name: str, raw_val: str) -> any:
+        def parse_env_var(cls, field_name: str, raw_val: str | None) -> any:
+            # Для WEBSOCKET_CORS_ORIGINS возвращаем строку как есть, парсинг будет в методе get_websocket_cors_origins
             if field_name == "WEBSOCKET_CORS_ORIGINS":
-                return [origin.strip() for origin in raw_val.split(",")] if raw_val else ["*"]
+                return raw_val if raw_val else "*"
             try:
-                return cls.json_loads(raw_val)
+                return cls.json_loads(raw_val) if raw_val else None
             except:
                 return raw_val
 

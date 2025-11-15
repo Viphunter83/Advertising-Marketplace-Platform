@@ -53,24 +53,51 @@ export function LoginForm() {
     
     try {
       const response = await authApi.login(data);
-      const { access_token, refresh_token, user } = response;
+      const { access_token, refresh_token } = response;
       
-      login(user, { access_token, refresh_token, token_type: 'bearer' });
+      // Сохраняем токены в localStorage перед запросом user
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('access_token', access_token);
+        localStorage.setItem('refresh_token', refresh_token);
+      }
       
-      // Редирект в зависимости от типа пользователя
-      const dashboardUrl = 
-        user.user_type === 'seller'
-          ? '/seller/dashboard'
-          : user.user_type === 'channel_owner'
-          ? '/channel/dashboard'
-          : '/admin/dashboard';
-      
-      toast.success('Logged in successfully!');
-      router.push(dashboardUrl);
+      // Получаем данные пользователя через /auth/me
+      try {
+        const userResponse = await authApi.getCurrentUser();
+        login(userResponse, { access_token, refresh_token, token_type: 'bearer' });
+        
+        // Ждем обновления состояния Zustand перед редиректом
+        await new Promise(resolve => setTimeout(resolve, 50));
+        
+        const dashboardUrl = 
+          userResponse.user_type === 'seller'
+            ? '/seller/dashboard'
+            : userResponse.user_type === 'channel_owner'
+            ? '/channel/dashboard'
+            : '/admin/dashboard';
+        
+        toast.success('Logged in successfully!');
+        // Используем window.location для надежного редиректа
+        // Это вызывает полную перезагрузку страницы, что гарантирует правильную инициализацию
+        window.location.href = dashboardUrl;
+        return; // Код после этого не выполнится из-за редиректа, но return для ясности
+      } catch (userErr: any) {
+        console.error('Failed to get user data:', userErr);
+        // Если не удалось получить user, все равно сохраняем токены
+        // и пытаемся перенаправить (пользователь может ввести данные вручную)
+        throw new Error('Failed to get user data. Please try again.');
+      }
     } catch (err: any) {
-      const errorMessage = err.response?.data?.detail || 'Login failed. Please try again.';
+      console.error('Login error:', err);
+      const errorMessage = err.response?.data?.detail || err.message || 'Login failed. Please try again.';
       setError(errorMessage);
       toast.error(errorMessage);
+      
+      // Очищаем токены при ошибке
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+      }
     } finally {
       setIsLoading(false);
     }

@@ -66,22 +66,45 @@ export function RegisterForm() {
     
     try {
       const response = await authApi.register(data);
-      const { access_token, refresh_token, user } = response;
+      const { access_token, refresh_token } = response;
       
-      login(user, { access_token, refresh_token, token_type: 'bearer' });
+      // Сохраняем токены в localStorage перед запросом user
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('access_token', access_token);
+        localStorage.setItem('refresh_token', refresh_token);
+      }
       
-      // Редирект на создание профиля после регистрации
-      const profileUrl = 
-        user.user_type === 'seller'
-          ? '/seller/profile'
-          : '/channel/profile';
-      
-      toast.success('Registration successful! Please complete your profile.');
-      router.push(profileUrl);
+      // Получаем данные пользователя через /auth/me
+      try {
+        const userResponse = await authApi.getCurrentUser();
+        login(userResponse, { access_token, refresh_token, token_type: 'bearer' });
+        
+        // Редирект на создание профиля после регистрации
+        const profileUrl = 
+          userResponse.user_type === 'seller'
+            ? '/seller/profile'
+            : '/channel/profile';
+        
+        toast.success('Registration successful! Please complete your profile.');
+        // Используем window.location для согласованности с LoginForm
+        // Это вызывает полную перезагрузку страницы, что гарантирует правильную инициализацию
+        window.location.href = profileUrl;
+        return; // Код после этого не выполнится из-за редиректа, но return для ясности
+      } catch (userErr: any) {
+        console.error('Failed to get user data:', userErr);
+        throw new Error('Failed to get user data. Please try again.');
+      }
     } catch (err: any) {
-      const errorMessage = err.response?.data?.detail || 'Registration failed. Please try again.';
+      console.error('Registration error:', err);
+      const errorMessage = err.response?.data?.detail || err.message || 'Registration failed. Please try again.';
       setError(errorMessage);
       toast.error(errorMessage);
+      
+      // Очищаем токены при ошибке
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+      }
     } finally {
       setIsLoading(false);
     }

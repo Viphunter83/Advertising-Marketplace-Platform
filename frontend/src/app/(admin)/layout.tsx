@@ -5,7 +5,7 @@ import { useAuthStore } from '@/lib/store/auth.store';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 
-export default function SellerLayout({
+export default function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -18,27 +18,21 @@ export default function SellerLayout({
     if (typeof window !== 'undefined') {
       const token = localStorage.getItem('access_token');
       if (token && !isAuthenticated) {
-        // Если есть токен, но состояние еще не обновлено, ждем
-        // AuthInitializer загрузит user
+        // Если есть токен, но состояние еще не обновлено, пытаемся загрузить user
         return;
       }
     }
 
-    // Если нет токена и не авторизован - редирект на логин
     if (!isAuthenticated || !user) {
-      const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
-      if (!token) {
-        router.replace('/login');
-      }
+      router.replace('/login');
       return;
     }
 
-    // Проверяем тип пользователя
-    if (user.user_type !== 'seller') {
-      const redirectUrl = user.user_type === 'channel_owner' 
-        ? '/channel/dashboard' 
-        : user.user_type === 'admin'
-        ? '/admin/dashboard'
+    if (user.user_type !== 'admin') {
+      const redirectUrl = user.user_type === 'seller' 
+        ? '/seller/dashboard' 
+        : user.user_type === 'channel_owner'
+        ? '/channel/dashboard'
         : '/';
       router.replace(redirectUrl);
       return;
@@ -66,7 +60,7 @@ export default function SellerLayout({
   }
 
   // Проверяем тип пользователя
-  if (user && user.user_type !== 'seller') {
+  if (user && user.user_type !== 'admin') {
     return null; // Будет редирект в useEffect
   }
 
