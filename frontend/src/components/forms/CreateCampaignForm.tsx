@@ -58,7 +58,11 @@ const createCampaignSchema = z.object({
 
 type CreateCampaignFormData = z.infer<typeof createCampaignSchema>;
 
-export function CreateCampaignForm() {
+interface CreateCampaignFormProps {
+  initialChannelId?: string;
+}
+
+export function CreateCampaignForm({ initialChannelId }: CreateCampaignFormProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = React.useState(false);
   const [balance, setBalance] = React.useState<number | null>(null);
@@ -84,7 +88,7 @@ export function CreateCampaignForm() {
   const form = useForm<CreateCampaignFormData>({
     resolver: zodResolver(createCampaignSchema),
     defaultValues: {
-      channel_id: '',
+      channel_id: initialChannelId || '',
       budget: 0,
       start_date: format(new Date(), 'yyyy-MM-dd'),
       end_date: format(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd'),
@@ -94,6 +98,13 @@ export function CreateCampaignForm() {
       creative_video_url: '',
     },
   });
+  
+  // Устанавливаем channel_id если передан (обрабатывает изменения после монтирования)
+  React.useEffect(() => {
+    if (initialChannelId) {
+      form.setValue('channel_id', initialChannelId);
+    }
+  }, [initialChannelId]); // form не нужен в зависимостях, так как это стабильный объект из useForm
   
   const selectedBudget = form.watch('budget');
   const hasEnoughBalance = balance !== null && balance >= selectedBudget;
