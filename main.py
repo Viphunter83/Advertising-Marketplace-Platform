@@ -7,7 +7,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.core.database import get_supabase_client, check_connection
-from app.routers import auth, sellers, channels
+from app.routers import auth, sellers, channels, campaigns
 
 # Настройка логирования
 logging.basicConfig(
@@ -37,6 +37,7 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(sellers.router)
 app.include_router(channels.router)
+app.include_router(campaigns.router)
 
 
 @app.get("/", tags=["root"])
