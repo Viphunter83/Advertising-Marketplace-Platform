@@ -15,15 +15,6 @@ export function useCampaigns() {
   });
 }
 
-export function useCampaignById(campaignId: string) {
-  return useQuery({
-    queryKey: ['campaigns', campaignId],
-    queryFn: async () => {
-      return await campaignsApi.getCampaign(campaignId);
-    },
-    enabled: !!campaignId,
-  });
-}
 
 export function useCreateCampaign() {
   const queryClient = useQueryClient();
