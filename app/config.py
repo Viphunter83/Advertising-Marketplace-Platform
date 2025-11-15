@@ -42,6 +42,24 @@ class Settings(BaseSettings):
     app_name: str = Field("Advertising Marketplace MVP", alias="APP_NAME")
     platform_commission_percent: float = Field(10.0, alias="PLATFORM_COMMISSION_PERCENT")
     
+    # Платёжные системы
+    yoomoney_wallet_number: Optional[str] = Field(None, alias="YOOMONEY_WALLET_NUMBER")
+    yoomoney_api_key: Optional[str] = Field(None, alias="YOOMONEY_API_KEY")
+    yoomoney_redirect_url: str = Field("http://localhost:8000/payments/yoomoney/callback", alias="YOOMONEY_REDIRECT_URL")
+    
+    sbp_bank_id: Optional[str] = Field(None, alias="SBP_BANK_ID")
+    sbp_merchant_id: Optional[str] = Field(None, alias="SBP_MERCHANT_ID")
+    sbp_api_key: Optional[str] = Field(None, alias="SBP_API_KEY")
+    
+    # Финансовые параметры
+    min_deposit_amount: float = Field(100.0, alias="MIN_DEPOSIT_AMOUNT")
+    max_deposit_amount: float = Field(500000.0, alias="MAX_DEPOSIT_AMOUNT")
+    min_withdrawal_amount: float = Field(100.0, alias="MIN_WITHDRAWAL_AMOUNT")
+    max_withdrawal_amount: float = Field(500000.0, alias="MAX_WITHDRAWAL_AMOUNT")
+    
+    # Webhooks
+    webhook_secret: str = Field("your-super-secret-webhook-key", alias="WEBHOOK_SECRET")
+    
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

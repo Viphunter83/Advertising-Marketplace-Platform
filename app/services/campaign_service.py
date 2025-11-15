@@ -403,6 +403,40 @@ class CampaignService:
                     commission = budget * commission_percent / 100
                     payment_to_owner = budget - commission
                     
+                    # Создаём транзакцию комиссии платформы
+                    commission_transaction_id = str(uuid4())
+                    supabase.table("transactions").insert({
+                        "id": commission_transaction_id,
+                        "campaign_id": campaign_id,
+                        "seller_id": campaign["seller_id"],
+                        "transaction_type": "commission",
+                        "status": "completed",
+                        "amount": float(commission),  # Исправлено: amount = commission, а не budget
+                        "commission": float(commission),
+                        "net_amount": float(commission),
+                        "description": f"Platform commission for campaign {campaign_id}",
+                        "created_at": datetime.now(timezone.utc).isoformat(),
+                        "completed_at": datetime.now(timezone.utc).isoformat(),
+                        "updated_at": datetime.now(timezone.utc).isoformat()
+                    }).execute()
+                    
+                    # Создаём транзакцию выплаты владельцу канала
+                    payment_transaction_id = str(uuid4())
+                    supabase.table("transactions").insert({
+                        "id": payment_transaction_id,
+                        "campaign_id": campaign_id,
+                        "channel_owner_id": campaign["channel_id"],
+                        "transaction_type": "payment",
+                        "status": "completed",
+                        "amount": float(payment_to_owner),  # Исправлено: amount = payment_to_owner, а не budget
+                        "commission": float(commission),
+                        "net_amount": float(payment_to_owner),
+                        "description": f"Payment for completed campaign {campaign_id}",
+                        "created_at": datetime.now(timezone.utc).isoformat(),
+                        "completed_at": datetime.now(timezone.utc).isoformat(),
+                        "updated_at": datetime.now(timezone.utc).isoformat()
+                    }).execute()
+                    
                     # Добавляем заработок на счёт владельца
                     await ChannelService.add_earnings(
                         user_id=channel.data[0]["user_id"],
@@ -414,32 +448,35 @@ class CampaignService:
                         channel_id=campaign["channel_id"],
                         completed_order=True
                     )
-                
-                # Обновляем статус заявки
-                result = supabase.table("campaigns").update({
-                    "status": "completed",
-                    "seller_confirmed_at": datetime.now(timezone.utc).isoformat(),
-                    "actual_completion_date": datetime.now(timezone.utc).isoformat(),
-                    "updated_at": datetime.now(timezone.utc).isoformat()
-                }).eq("id", campaign_id).execute()
-                
-                # Логируем
-                await CampaignService._log_activity(
-                    campaign_id=campaign_id,
-                    user_id=seller_user_id,
-                    action_type="confirmed",
-                    description="Campaign confirmed, payment released to channel owner"
-                )
-                
-                # Уведомляем владельца канала
-                if channel.data:
+                    
+                    # Обновляем статус заявки (внутри блока if channel.data для атомарности)
+                    result = supabase.table("campaigns").update({
+                        "status": "completed",
+                        "seller_confirmed_at": datetime.now(timezone.utc).isoformat(),
+                        "actual_completion_date": datetime.now(timezone.utc).isoformat(),
+                        "updated_at": datetime.now(timezone.utc).isoformat()
+                    }).eq("id", campaign_id).execute()
+                    
+                    # Логируем
+                    await CampaignService._log_activity(
+                        campaign_id=campaign_id,
+                        user_id=seller_user_id,
+                        action_type="confirmed",
+                        description="Campaign confirmed, payment released to channel owner"
+                    )
+                    
+                    # Уведомляем владельца канала
                     await NotificationService.send_campaign_completed_notification(
                         channel_owner_user_id=channel.data[0]["user_id"],
                         campaign_id=campaign_id,
                         payment_amount=payment_to_owner
                     )
-                
-                logger.info(f"Campaign {campaign_id} confirmed, funds released to channel owner")
+                    
+                    logger.info(f"Campaign {campaign_id} confirmed, funds released to channel owner")
+                else:
+                    # Если канал не найден, не обновляем статус
+                    logger.error(f"Channel not found for campaign {campaign_id}, cannot complete payment")
+                    raise ValueError("Channel not found, cannot complete payment")
             
             else:
                 # ОТКРЫВАЕМ СПОР
